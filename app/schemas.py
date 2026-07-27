@@ -1,6 +1,16 @@
+"""Request and response shapes for the API.
+
+These are deliberately separate from the database model: the table calls things
+`id` and `error_message`, the API exposes `job_id` and `error`. Keeping them
+apart means renaming a column doesn't break the public contract.
+"""
+
 from datetime import datetime
 from uuid import UUID
+
 from pydantic import BaseModel, Field, HttpUrl
+
+from app.models import Job
 
 class GenerateRequest(BaseModel):
     product_name: str = Field(min_length=1, max_length=255)
@@ -23,7 +33,7 @@ class JobResponse(BaseModel):
     created_at: datetime
     updated_at: datetime
     @classmethod
-    def from_job(cls, job) -> "JobResponse":
+    def from_job(cls, job: Job) -> "JobResponse":
         return cls(
             job_id=job.id,
             status=job.status,

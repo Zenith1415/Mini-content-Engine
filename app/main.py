@@ -15,7 +15,9 @@ logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s %(levelname)s %(name)s: %(message)s",
 )
+logger = logging.getLogger(__name__)
 
+# Must exist before StaticFiles is mounted below, or the mount raises on import.
 Path(settings.STORAGE_DIR).mkdir(parents=True, exist_ok=True)
 
 app = FastAPI(title="GlitrAI Mini Content Engine", version="0.1.0")
@@ -23,14 +25,18 @@ app.mount("/images", StaticFiles(directory=settings.STORAGE_DIR), name="images")
 
 @app.get("/health")
 def health():
+    """Actually talks to Postgres - a health check that can't fail is useless."""
     try:
         with engine.connect() as connection:
             connection.execute(text("SELECT 1"))
         return {"status": "ok", "database": "ok"}
-    except Exception as exc:
+    except Exception:
+        # Log the real error, but don't return it: database errors can contain
+        # connection details, and this endpoint is unauthenticated.
+        logger.exception("Health check failed")
         return JSONResponse(
             status_code=503,
-            content={"status": "degraded", "database": "error", "detail": str(exc)[:200]},
+            content={"status": "degraded", "database": "error"},
         )
 
 @app.post("/generate", response_model=GenerateResponse, status_code=202)
